@@ -1,0 +1,198 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  MyCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: jake-dynamo-build
+      ServiceRole: !GetAtt codeBuildExecutionRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+      Source: 
+        BuildSpec: |
+          version: 0.2
+          env:
+            shell: bash
+          phases:
+            build:
+              commands:
+              - aws cloudformation create-change-set --stack-name dynamodb-change-set --change-set-name jake-change-set --template-body file://template.yaml --change-set-type CREATE --capabilities CAPABILITY_NAMED_IAM
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10
+
+  MyCodeBuildTesTProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: exec-change-set
+      ServiceRole: !GetAtt codeBuildExecutionRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+      Source: 
+        BuildSpec: |
+          version: 0.2
+          env:
+            shell: bash
+          phases:
+            build:
+              commands:
+              - aws cloudformation execute-change-set --stack-name dynamodb-change-set --change-set-name jake-change-set 
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10
+
+  iamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:aws:s3:::${ArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - iam:PassRole
+                  - s3:* 
+                  - cloudformation:*
+                  - codecommit:*
+
+
+  cloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    #DeletionPolicy: Retain
+
+  codepipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt iamRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      RestartExecutionOnUpdate: true
+      Stages: 
+        - Name: Source
+          Actions:
+            - Name: checkout 
+              ActionTypeId: 
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: "1"
+              Configuration:
+                Owner: AyodeAwe 
+                Repo: codepipeline-dynamodb
+                PollForSourceChanges: 'true'
+                Branch: master
+                OAuthToken: '{{resolve:secretsmanager:jake/github/accesstoken:SecretString:token}}'
+              InputArtifacts: []
+              OutputArtifacts:
+              - Name: MyArtifact
+              Region: us-east-1
+        - Actions:
+          - ActionTypeId: 
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: "1"
+            Configuration:
+              ProjectName: jake-dynamo-build
+              PrimarySource: MyArtifact
+            InputArtifacts: 
+            - Name: MyArtifact
+            OutputArtifacts:
+            - Name: MyBuildArtifact
+            Name: build
+            Region: us-east-1
+          - ActionTypeId:
+              Category: Approval
+              Owner: AWS
+              Provider: Manual
+              Version: "1"
+            InputArtifacts: []
+            OutputArtifacts: []
+            Name: approval-required
+            Region: us-east-1
+          - ActionTypeId: 
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: "1"
+            Configuration:
+              ProjectName: exec-change-set
+              PrimarySource: MyArtifact
+            InputArtifacts: 
+            - Name: MyArtifact
+            OutputArtifacts:
+            - Name: ExecBuildArtifact
+            Name: build-validate
+            Region: us-east-1
+          Name: Execs
+
+  codeBuildExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: 
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+      Policies:
+      - PolicyName: S3-Jake
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - 'cloudformation:*'
+            - 'logs:*'
+            - 'iam:*'
+            - 's3:*'
+            - 'dynamodb:*'
+            Resource: "*"

@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  EngineerName:
+    Type: String
+    Default: JakeAwee
+  BaseParameterKey:
+    Type: String
+    Default: /jake-awe-labs/stelligent-u/lab11
+  EngineerTeam:
+    Type: String
+    Default: Stelligent
+  EngineerTimezone:
+    Type: String
+    Default: CST
+  EngineerState:
+    Type: String
+    Default: NewYork
+Resources:
+  BasicParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub ${BaseParameterKey}/${EngineerName}
+      DataType: text
+      Type: String
+      Value: !Sub ${EngineerName}  
+      Description: Engineer
+  
+  TeamParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub ${BaseParameterKey}/${EngineerName}/team
+      DataType: text
+      Type: String
+      Value: !Sub ${EngineerTeam}  
+      Description: EngineerTeam
+
+  TimezoneParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub ${BaseParameterKey}/${EngineerName}/timezone
+      DataType: text
+      Type: String
+      Value: !Sub ${EngineerTimezone}  
+      Description: EngineerTimezone
+
+  StateParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub ${BaseParameterKey}/${EngineerName}/state
+      DataType: text
+      Type: String
+      Value: !Sub ${EngineerState}  
+      Description: EngineerState

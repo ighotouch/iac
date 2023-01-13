@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "EC2"
+Parameters:
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: "Linux AMI"
+Resources:
+  JakeLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: JakeLaunchTempla
+      LaunchTemplateData:
+        KeyName: JakeKey
+        InstanceType: t2.micro
+        NetworkInterfaces: 
+          - AssociatePublicIpAddress: true
+            DeviceIndex: 0
+            SubnetId: !ImportValue JakePublicSubnet
+            Groups:
+              - !ImportValue JakeSecGroupName
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            export CLOUDWATCH_CONFIG_FILE_DIRECTORY="/opt/aws/amazon-cloudwatch-agent/bin/config.json"
+            apt-get update -y
+            apt-get install unzip -y 
+            wget https://s3.amazonaws.com/amazoncloudwatch-agent/linux/amd64/latest/AmazonCloudWatchAgent.zip
+
+            unzip AmazonCloudWatchAgent.zip
+            sudo ./install.sh
+
+            cat <<EOT >> $CLOUDWATCH_CONFIG_FILE_DIRECTORY
+            {
+              "agent": {
+                  "metrics_collection_interval": 60,
+                  "run_as_user": "cwagent"
+              },
+              "metrics": {
+                  "append_dimensions": {
+                    "AutoScalingGroupName": "\${!aws:AutoScalingGroupName}",
+                    "ImageId": "\${!aws:ImageId}",
+                    "InstanceId": "\${!aws:InstanceId}",
+                    "InstanceType": "\${!aws:InstanceType}"
+                  },
+                  "metrics_collected": {
+                    "disk": {
+                      "measurement": [
+                        "used_percent"
+                    ],
+                    "metrics_collection_interval": 60,
+                      "resources": [
+                          "*"
+                    ]
+                  },
+                  "mem": {
+                      "measurement": [
+                        "mem_used_percent"
+                      ],
+                      "metrics_collection_interval": 60
+                  }
+                }
+              }
+            }
+            EOT
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:"$CLOUDWATCH_CONFIG_FILE_DIRECTORY" -s
+            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
+
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy  
+  
+  MyInstanceProfile: 
+    Type: "AWS::IAM::InstanceProfile"
+    Properties: 
+      Roles: 
+        - !Ref IAMRole
+
+  ec2Volume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: !GetAtt UbuntuInstance.AvailabilityZone
+      Encrypted: false
+      Size: 20
+      Tags:
+        - Key: key
+          Value: value
+
+  UbuntuInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref JakeLaunchTemplate
+        Version: "1"
+      IamInstanceProfile: !Ref MyInstanceProfile
+      Tags:
+        - Key: Name
+          Value: "Jake-linux"
+
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref UbuntuInstance
+
+Outputs:
+  EIP:
+    Value: !Ref EIP

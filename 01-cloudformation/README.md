@@ -58,7 +58,7 @@
 
 ### Principle 1.1
 
-AWS CloudFormation (CFN) is the preferred way we create AWS resources at Stelligent
+AWS CloudFormation (CFN) is the preferred way we create AWS resources 
 
 ### Practice 1.1
 
@@ -160,11 +160,10 @@ name.
 
 _Why do we prefer the YAML format for CFN templates?_
 
-> * Coming from tools like Docker Compose, Kubernetes there was no need to adopt a different syntax as the all use YAML too.
-
-> * YAML supports comments and this could be very useful to me.
-
-> * YAML to me is more readable and takes fewer characters to express the same information.
+> - Coming from tools like Docker Compose, Kubernetes
+> there was no need to adopt a different syntax as the all use YAML too.
+> - YAML supports comments and this could be very useful to me.
+> - YAML to me is more readable and takes fewer characters to express the same information.
 
 #### Question: Protecting Resources
 
@@ -174,14 +173,18 @@ See [DeletionPolicy](https://aws.amazon.com/premiumsupport/knowledge-center/clou
 
 _How is that different from applying Termination Protection?_
 
-> * We can assign an IAM Access Management Policy to restrict the ability of users to delete or update a stack and its resources. And this is different from the Termination Protection as the stack can still be deleted by other users if they have the right policy that allows this to happen.
+> We can assign an IAM Access Management Policy to restrict the
+> ability of users to delete or update a stack and its
+> resources. And this is different from the Termination
+> Protection as the stack can still be deleted by other
+> users if they have the right policy that allows this to happen.
 
 #### Task: String Substitution
 
 Demonstrate 2 ways to code string combination/substitution using
 built-in CFN functions.
 
-> * You could use !Join to combine two strings or !Sub which can also handle substitution
+> You could use !Join to combine two strings or !Sub which can also handle substitution
 
 ## Lesson 1.2: Integration with Other AWS Resources
 
@@ -237,7 +240,10 @@ Delete your CFN stacks in the same order you created them in. Did you
 succeed? If not, describe how you would _identify_ the problem, and
 resolve it yourself.
 
-> Deleting completed without error but the stack saw still left unchanged, looking at the events I could see there as an issue. You can identify the problem from the events tab on the console or by listing the exported and imported stack
+> Deleting completed without error but the stack saw still left
+> unchanged, looking at the events I could see there as an
+> issue. You can identify the problem from the events tab on
+> the console or by listing the exported and imported stack
 
 ### Retrospective 1.2
 
@@ -245,11 +251,13 @@ resolve it yourself.
 
 Show how to use the IAM policy tester to demonstrate that the user
 cannot perform 'Put' actions on any S3 buckets.
-* First you log in to the console
-* Then navigate to https://policysim.aws.amazon.com/home/index.jsp
-* Select the user
-* Select the service (S3) then the action (PutObject)
-* Finally run the simulation
+
+- First you log in to the console
+- Then navigate to [policy simulator page](https://policysim.aws.amazon.com/home/index.jsp)
+- Select the user
+- Select the service (S3) then the action (PutObject)
+- Finally run the simulation
+
 #### Task: SSM Parameter Store
 
 Using the AWS Console, create a Systems Manager Parameter Store
@@ -257,7 +265,6 @@ parameter in the same region as the first Stack, and provide a value for
 that parameter. Modify the first Stack's template so that it utilizes
 this Parameter Store parameter value as the IAM User's name. Update the
 first stack. Finally, tear it down.
-
 
 ## Lesson 1.3: Portability & Staying DRY
 
@@ -335,11 +342,10 @@ functionality. Query S3 to ensure that the buckets have been deleted.
 _Can you list 4 features of CloudFormation that help make a CFN template
 portable code?_
 
-> * Parameters
-> * Outputs
-> * Conditions
-> * SDK Support
-
+> Parameters
+> Outputs
+> Conditions
+> SDK Support
 
 #### Task: DRYer Code
 

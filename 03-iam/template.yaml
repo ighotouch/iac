@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "3.1.1: IAM Role"
+Parameters:
+  IAMName: 
+    Type: String
+    Default: "jake-iam-role-user"
+  IAMPolicyName: 
+    Type: String
+    Default: "read-only"
+  BucketName:
+    Type: String
+    Description: 'Bucket Name'
+    Default: 'jake-bucket-iam'
+
+Resources:
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMReadOnlyAccess
+        
+    
+  IAMNewRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/IAMReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess 
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Join ['-', [!Ref AWS::Region, !Ref AWS::AccountId, !Ref BucketName]]
+
+  S3BucketTwo:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      # BucketName: !Join ['-', [!Ref AWS::Region, !Ref AWS::AccountId, !Ref BucketName]]
+
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:PutObject'
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+            Principal: '*'
+
+  BucketPolicyTwo:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketTwo
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:PutObject'
+            Effect: Deny
+            Resource: !Sub "arn:aws:s3:::${S3BucketTwo}/*"
+            Principal: '*'
+
+Outputs:
+  IAMNewRole: 
+    Value: !Ref IAMNewRole

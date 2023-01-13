@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  MyCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: jake-build
+      ServiceRole: !GetAtt codeBuildExecutionRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+      Source: 
+        BuildSpec: |
+          version: 0.2
+          env:
+            shell: bash
+          phases:
+            build:
+              commands:
+              - aws cloudformation validate-template --template-body file://bucket.yaml
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10
+
+  MyCodeBuildTesTProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: jake-test
+      ServiceRole: !GetAtt codeBuildExecutionRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+      Source: 
+        BuildSpec: |
+          version: 0.2
+          env:
+            shell: bash
+          phases:
+            build:
+              commands:
+              - aws s3api head-bucket --bucket "jake-bucket-lambda-new"
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10
+
+  iamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:aws:s3:::${ArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - iam:PassRole
+                  - s3:* 
+                  - cloudformation:*
+                  - codecommit:*
+
+
+  cloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    #DeletionPolicy: Retain
+
+  codepipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt iamRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      RestartExecutionOnUpdate: true
+      Stages: 
+        - Name: Source
+          Actions:
+            - Name: checkout 
+              ActionTypeId: 
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: "1"
+              Configuration:
+                Owner: AyodeAwe 
+                Repo: stelligent-codepipeline
+                PollForSourceChanges: 'true'
+                Branch: master
+                OAuthToken: '{{resolve:secretsmanager:jake/github/accesstoken:SecretString:token}}'
+              InputArtifacts: []
+              OutputArtifacts:
+              - Name: MyArtifact
+              Region: us-east-1
+        - Actions:
+          - ActionTypeId: 
+              Category: Build
+              Owner: AWS
+              Provider: CodeBuild
+              Version: "1"
+            Configuration:
+              ProjectName: jake-build
+              PrimarySource: MyArtifact
+            InputArtifacts: 
+            - Name: MyArtifact
+            OutputArtifacts:
+            - Name: MyBuildArtifact
+            Name: build-validate
+            Region: us-east-1
+          Name: Build
+        - Actions: 
+          - ActionTypeId: 
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: "1"
+            Configuration:
+              ActionMode: CREATE_UPDATE
+              Capabilities: CAPABILITY_IAM
+              StackName: bucket-stack
+              TemplatePath: MyArtifact::bucket.yaml
+              RoleArn: !GetAtt cloudformationRole.Arn
+            OutputArtifacts: []
+            InputArtifacts:
+            - Name: MyArtifact 
+            Name: Create-S3-Bucket
+            Region: us-east-1
+          Name: Deploy
+        - Actions:
+          - ActionTypeId:
+              Category: Test
+              Owner: AWS
+              Provider: CodeBuild
+              Version: "1"
+            Configuration:
+              ProjectName: jake-test
+              PrimarySource: MyArtifact
+            InputArtifacts: 
+            - Name: MyArtifact
+            OutputArtifacts:
+            - Name: MyTestArtifact
+            Name: healthy
+            Region: us-east-1
+          Name: Test 
+
+  codeBuildExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: 
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+      Policies:
+      - PolicyName: S3-Jake
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - 'cloudformation:*'
+            - 'logs:*'
+            - 'iam:PassRole'
+            - 's3:*'
+            Resource: "*"

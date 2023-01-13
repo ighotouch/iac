@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+    EngineerName:
+       Type: AWS::SSM::Parameter::Name
+       Default: /jake-awe-labs/stelligent-u/lab11/JakeAwee
+    EngineerState:
+       Type: AWS::SSM::Parameter::Value<String>
+       Default: /jake-awe-labs/stelligent-u/lab11/JakeAwee/state
+    EngineerTeam:
+       Type: AWS::SSM::Parameter::Value<String>
+       Default: /jake-awe-labs/stelligent-u/lab11/JakeAwee/team
+    EngineerMiddleName:
+       Type: String
+       Default: ${{resolve:ssm-secure:/jake-awe-labs/stelligent-u/lab11/JakeAwee/middle-name:1}}
+    EngineerTimezone:
+       Type: AWS::SSM::Parameter::Value<String>
+       Default: /jake-awe-labs/stelligent-u/lab11/JakeAwee/timezone
+    
+Resources:
+#auto scaling group
+  WebServerAsg:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      VPCZoneIdentifier:
+        - subnet-09c0cbff749deae9e
+        - subnet-09427cd0d60e3be4a
+      DesiredCapacity: '3'
+      HealthCheckType: 'ELB'
+      HealthCheckGracePeriod: 30 
+      LaunchConfigurationName: !Ref WebServersLC
+      MaxSize: '3'
+      MinSize: '3'
+      TargetGroupARNs: 
+      - !Ref MyApplicationLoadBalancerTargetGrp 
+#load balancer target group 
+  MyApplicationLoadBalancerTargetGrp:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 15
+      HealthCheckPath: /index.html
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 6
+      HealthyThresholdCount: 5
+      Name: MyalbTargetGroup
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId: vpc-0eda4c5321822a055
+#application load balancer
+  MyAppLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      SecurityGroups: 
+        - sg-0bd4c92c9a715aa88
+      Subnets: 
+        - subnet-09c0cbff749deae9e
+        - subnet-09427cd0d60e3be4a
+      Type: application
+#load balancing listener
+  MyAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      DefaultActions: 
+      - TargetGroupArn: !Ref MyApplicationLoadBalancerTargetGrp
+        Type: forward
+      LoadBalancerArn: !Ref MyAppLoadBalancer
+      Port: 80
+      Protocol: HTTP
+#auto scaling launch config
+  WebServersLC:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      ImageId: ami-0be2609ba883822ec
+      InstanceType: t2.micro
+      LaunchConfigurationName: SimpleWebServerLCCC
+      SecurityGroups:
+        - sg-0bd4c92c9a715aa88
+      UserData: 
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            sudo amazon-linux-extras install nginx1
+            sudo chmod a+w /usr/share/nginx/html/index.html
+            echo '<ul><li>${EngineerName}</li><li>${EngineerState}</li><li>${EngineerMiddleName}</li><li>${EngineerTeam}</li><li>${EngineerTimezone}</li></ul>' > /usr/share/nginx/html/index.html
+            cd /bin && sudo nginx

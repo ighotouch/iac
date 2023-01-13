@@ -81,8 +81,6 @@ used throughout these lessons.
 - Tag all your new resources with:
 
   - the key "user" and your AWS user name;
-  - "stelligent-u-lesson" and this lesson number;
-  - "stelligent-u-lab" and this lab number.
 
 - Don't use dedicated tenancy (it's needlessly expensive).
 
@@ -133,10 +131,14 @@ Launch an EC2 instance into your VPC.
 
 _After you launch your new stack, can you ssh to the instance?_
 
+> No the security group port 22 is not yet set
+
 ##### Question: Verify Connectivity
 
 _Is there a way that you can verify Internet connectivity from the instance
 without ssh'ing to it?_
+
+> You will have to check the subnet route table and ACL
 
 #### Lab 4.1.5: Security Group
 
@@ -164,13 +166,19 @@ reachable from anywhere outside your VPC.
 
 _Can you ping your instance now?_
 
+> YES
+
 ##### Question: SSH
 
 _Can you ssh into your instance now?_
 
+> YES
+
 ##### Question: Traffic
 
 _If you can ssh, can you send any traffic (e.g. curl) out to the Internet?_
+
+> YES
 
 At this point, you've made your public EC2 instance an [ssh bastion](https://docs.aws.amazon.com/quickstart/latest/linux-bastion/architecture.html).
 We'll make use of that to explore your network below.
@@ -200,14 +208,20 @@ existing instance stack.
 
 _Can you find a way to ssh to this instance?_
 
+> Yes from the public subnet using the private instance ip you can ssh to it
+
 ##### Question: Egress
 
 _If you can ssh to it, can you send traffic out?_
+
+> Yes
 
 ##### Question: Deleting the Gateway
 
 _If you delete the NAT gateway, what happens to the ssh session on your private
 instance?_
+
+> it continues to work but you cannot ping out or curl
 
 ##### Question: Recreating the Gateway
 
@@ -231,6 +245,8 @@ First, add one on the public subnet:
 ##### Question: EC2 Connection
 
 _Can you still reach your EC2 instances?_
+
+> No
 
 Add another ACL to your private subnet:
 
@@ -300,10 +316,14 @@ Elastic IP.
 
 _Can you ping this instance from the public instance you created earlier?_
 
+> YES
+
 ##### Question: Private to Public
 
 _Can you ping your public instance from this private instance? Which IPs are
 reachable, the public instance's private IP or its public IP, or both?_
+
+> Was able to ping the private IP
 
 Use traceroute to see where traffic flows to both the public and private IPs.
 

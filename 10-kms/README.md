@@ -67,9 +67,13 @@ Use the KMS CLI to now decrypt a ciphertext file.
 _For decrypting the ciphertext file, why didn't you have to specify a key? How
 did you have permission to decrypt?_
 
+> I already add a policy that allows my account to use the key
+
 #### Question: KMS Alias
 
 _Why is it beneficial to use a KMS Alias?_
+
+> You can use an alias to identify a CMK in the AWS KMS console
 
 ## Lesson 10.2: Implementation of KMS Keys in S3
 

@@ -122,9 +122,15 @@ policy:
 
 - Update the Stack. *Did the stack update work?*
 
-  - Query the stack to determine its state.
-  - If the stack update was not successful,
-    [troubleshoot and determine why](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement).
+> NO it failed and roled back
+> This error typically occurs when a stack update tries to
+> replace resources that have properties with custom names.
+> AWS CloudFormation doesn't replace a resource that has a
+> custom name unless that custom name is changed to a different name.
+
+- Query the stack to determine its state.
+- If the stack update was not successful,
+  [troubleshoot and determine why](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement).
 
 #### Lab 3.1.4: AWS-Managed Policies
 
@@ -168,6 +174,12 @@ stack's two roles in order to pass those values to the CLI function. You
 probably used the AWS web console to get the ARN for each role. What
 could you have done to your CFN template to make that unnecessary?_
 
+> Could have exported the value
+> aws-vault exec jake -- aws iam simulate-principal-policy \
+> --policy-source-arn arn:aws:iam::324320755747:role/
+> jake-test-iam-IAMNewRole-1FOHEYQ7EEEK9 \
+> --action-names iam:ListRoles
+
 #### Task: Stack Outputs
 
 Institute that change from the Question above. Recreate the stack as per
@@ -209,8 +221,10 @@ your User to assume that role.
 
 - Create the stack.
 
-- Using the AWS CLI, assume that new role. If this fails, take note of
-  the error you receive, diagnose the issue and fix it.
+- Using the AWS CLI, assume that new role. If this fails,
+  take note of the error you receive, diagnose the issue and fix it.
+
+> Assuming the role was successful
 
 *Hint: Instead of setting up a new profile in your \~/.aws/credentials
 file, use [aws sts assume-role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html#using-temp-creds-sdk-cli).

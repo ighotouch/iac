@@ -90,16 +90,28 @@ EC2 services are the engine behind your Cloud9 development environment.
 Describe these instance attributes by querying the Cloud9 environment's
 [instance metadata](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html#instancedata-data-retrieval):
 
+> curl <http://169.254.169.254/latest/meta-data/>
+
 - the image snapshot, or Amazon Machine Image (AMI), the instance was
   launched from
 
+> curl <http://169.254.169.254/latest/meta-data/ami-id>
+
 - the Type of instance created from that AMI
+
+> curl <http://169.254.169.254/latest/meta-data/instance-type>
 
 - the public IPV4 IP address
 
+> curl <http://169.254.169.254/latest/meta-data/public-ipv4>
+
 - the Security Groups the instance is associated with
 
+> curl <http://169.254.169.254/latest/meta-data/security-groups>
+
 - the networking Subnet ID the instance was launched into
+
+> curl <http://169.254.169.254/latest/meta-data/network/interfaces/macs/02:41:79:83:ec:91/subnet-id>
 
 Save your queries (but not the outputs) in your source code.
 
@@ -200,6 +212,8 @@ function.
 
 Try pinging that IP address. Does it work?
 
+> NO this will not work if the default security group does not allow this.
+
 - Using the CFN template, create a Security Group enabling
   [ICMP](https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol).
 
@@ -209,6 +223,8 @@ Try pinging that IP address. Does it work?
 
 Can you ping your instance now? If not, troubleshoot and fix the issue
 using your CFN template.
+
+> Yes i can ping it after attaching ICMP
 
 #### Lab 5.2.2: SSH Keys
 

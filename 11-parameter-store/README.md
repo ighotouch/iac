@@ -121,6 +121,8 @@ entire subtree with a single query.
 _When you look at your stack in the CloudFormation console, can you find
 the values of your parameter resources there?_
 
+> No i can only find the Physical IDs
+
 #### Lab 11.1.3: Integration with CloudFormation
 
 CloudFormation can use Parameter Store keys and values as
