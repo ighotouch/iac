@@ -1,0 +1,19 @@
+# current-Region-current-Account-friendly-name
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Scripting"
+Parameters:
+  BucketName:
+    Type: String
+    Description: Bucket name
+    Default: random.s3.bucket
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Join ['-', [!Ref AWS::Region, !Ref AWS::AccountId, !Ref BucketName]]
+      Tags:
+        - Key: Name
+          Value: !Ref BucketName

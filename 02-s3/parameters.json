@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "BucketName",
+    "ParameterValue": "random.s3.bucket-test-node-k"
+  },
+  {
+    "ParameterKey": "IAMUser",
+    "ParameterValue": "jake-user"
+  }
+]

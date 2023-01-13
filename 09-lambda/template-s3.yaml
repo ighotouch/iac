@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: 'S3 bucket'
+Parameters:
+  BucketName:
+    Type: String
+    Description: 'Bucket Name'
+    Default: 'jake-bucket-lambda'
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join ['-', [!Ref AWS::Region, !Ref AWS::AccountId, !Ref BucketName]]
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: "KeyName"
+          Value: "value12"
+
+  dynamodbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - 
+          AttributeName: ID
+          AttributeType: S
+        -
+          AttributeName: Username
+          AttributeType: S
+      KeySchema:
+        - 
+          AttributeName: ID
+          KeyType: "HASH"
+        - 
+          AttributeName: Username
+          KeyType: RANGE
+      TableName: JakeUsers
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      Tags:
+        - Key: key
+          Value: value
+          
+  PublicReadBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3Bucket
+                - /*
+            Principal: '*'

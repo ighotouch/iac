@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "BucketName",
+    "ParameterValue": "random.s3.bucket-test-node"
+  },
+  {
+    "ParameterKey": "PreferedRegion",
+    "ParameterValue": "eu-west-1"
+  }
+]

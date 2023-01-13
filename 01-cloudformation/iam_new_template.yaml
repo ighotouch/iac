@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Cross-Referencing Resources within a Template"
+
+Parameters: 
+  IAMName:
+    Type: String
+    Description: User Name
+
+Resources:
+  IAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref IAMName
+      ManagedPolicyArns:
+          - !ImportValue JakeIAMPolicyResourceName

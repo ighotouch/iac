@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  apiGatewayName:
+    Type: String
+    Default: my-api
+  apiGatewayStageName:
+    Type: String
+    AllowedPattern: "[a-z0-9]+"
+    Default: call
+  lambdaFunctionName:
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+"
+    Default: jakeFunctionnew
+Resources:
+  apiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: API Gateway
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: !Ref apiGatewayName
+
+  apiGatewayRootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
+          - lambdaArn: !GetAtt lambdaFunction.Arn
+      ResourceId: !GetAtt apiGateway.RootResourceId
+      RestApiId: !Ref apiGateway
+
+  apiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - apiGatewayRootMethod
+    Properties:
+      RestApiId: !Ref apiGateway
+      StageName: !Ref apiGatewayStageName
+
+  lambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - DynamoDB:PutItem
+                Effect: Allow
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${lambdaFunctionName}:*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/JakeUsers
+          PolicyName: lambda
+
+  lambdaApiGatewayInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref lambdaFunctionName
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${apiGateway}/${apiGatewayStageName}/POST/
+
+  lambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: nodejs12.x
+      FunctionName: !Ref lambdaFunctionName
+      Role: !GetAtt lambdaRole.Arn
+      Handler: index.handler
+      Code:
+        S3Bucket: us-east-1-324320755747-jake-bucket-lambda
+        S3Key: 9f1cda1b282612319049b18222f08e2e
+      Description: Hello AWS!
+      TracingConfig:
+        Mode: Active
+
+  MyRoleCloudWatch:
+    Type: AWS::IAM::Role
+    Properties: 
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal: 
+              Service: 
+              - "cloudtrail.amazonaws.com"
+            Action: 
+            - "sts:AssumeRole"
+
+  S3Bucket: 
+      DeletionPolicy: Retain
+      Type: AWS::S3::Bucket
+      Properties: {}
+
+  BucketPolicy: 
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket: 
+        Ref: S3Bucket
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: "AWSCloudTrailAclCheck"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudtrail.amazonaws.com"
+            Action: "s3:GetBucketAcl"
+            Resource: 
+              !Sub |-
+                arn:aws:s3:::${S3Bucket}
+          - 
+            Sid: "AWSCloudTrailWrite"
+            Effect: "Allow"
+            Principal: 
+              Service: "cloudtrail.amazonaws.com"
+            Action: "s3:PutObject"
+            Resource:
+              !Sub |-
+                arn:aws:s3:::${S3Bucket}/AWSLogs/${AWS::AccountId}/*
+            Condition: 
+              StringEquals:
+                s3:x-amz-acl: "bucket-owner-full-control"
+  
+  JakeTrail:
+    DependsOn: 
+      - BucketPolicy
+    Type: AWS::CloudTrail::Trail
+    Properties: 
+      EventSelectors: 
+      - DataResources: 
+          - Type:  AWS::S3::Object
+            Values: 
+              -  arn:aws:s3:::us-east-1-324320755747-jake-bucket-lambda/
+        IncludeManagementEvents: true
+        ReadWriteType: All
+      IsLogging: true
+      S3BucketName: !Ref S3Bucket
+      TrailName: jake-trail
+
+  MyEventBridgeRule:
+      Type: AWS::Events::Rule
+      Properties: 
+        Description: send putObject logs to s3
+        EventPattern: 
+          source:
+          - aws.s3
+          detail-type:
+          - "AWS API Call via CloudTrail"
+          detail:
+            eventSource:
+            - s3.amazonaws.com
+            eventName:
+            - PutObject
+            requestParameters:
+              bucketName:
+              - us-east-1-324320755747-jake-bucket-lambda
+        Name: jake-event-s3-rule
+        State: ENABLED
+        Targets: 
+          - Arn: !GetAtt lambdaFunction.Arn
+            Id: lambda-001
+  
+  LambdaInvokePermissionForEvents:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt lambdaFunction.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt MyEventBridgeRule.Arn
+
+  LogGroup: 
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Sub "${AWS::StackName}"
+      RetentionInDays: 7
+
+  LambdaLogGroup: 
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}"
+      RetentionInDays: 7
+  

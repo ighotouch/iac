@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "IAMName",
+    "ParameterValue": "jake_lab_new"
+  },
+  {
+    "ParameterKey": "IAMPolicyName",
+    "ParameterValue": "read-only"
+  }
+]

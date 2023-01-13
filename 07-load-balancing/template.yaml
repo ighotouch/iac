@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: vpc-00199805c9d35168a
+      TargetType: instance
+      HealthCheckPath: /index.html
+      Port: 80
+      Protocol: HTTP
+      
+  WebServerAsg:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      AutoScalingGroupName: 'AutomationBoxes'
+      VPCZoneIdentifier:
+        - 'subnet-05a27f6d0b0a1e195'
+        - 'subnet-064c6d0b3467b97d2'
+      DesiredCapacity: '3'
+      HealthCheckType: 'ELB'
+      HealthCheckGracePeriod: 30
+      LaunchConfigurationName: !Ref WebServersLC
+      MaxSize: '3'
+      MinSize: '3'
+      TargetGroupARNs:
+        - !Ref TargetGroup
+
+  MyLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets: 
+        - 'subnet-05a27f6d0b0a1e195'
+        - 'subnet-064c6d0b3467b97d2'
+
+  ListenerRule2:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      ListenerArn: !Ref HTTPlistener
+      Conditions:
+        - Field: http-request-method
+          HttpRequestMethodConfig:
+            Values:
+              - POST
+              - GET
+      Priority: 2
+
+  HTTPlistener:
+   Type: "AWS::ElasticLoadBalancingV2::Listener"
+   Properties:
+      DefaultActions:
+        - Type: "redirect"
+          RedirectConfig:
+            Protocol: "HTTPS"
+            Port: '443'
+            Host: "#{host}"
+            Path: "/#{path}"
+            Query: "#{query}"
+            StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref MyLoadBalancer
+      Port: 80
+      Protocol: "HTTP"
+
+  WebServersLC:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      ImageId: 'ami-0ff8a91507f77f867'
+      InstanceType: 't2.micro'
+      LaunchConfigurationName: 'SimpleWebServerLC'
+      KeyName: JakeKey
+      SecurityGroups:
+        - 'sg-0c1617312e6017ae4'
+      UserData: 
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+
+            yum install -y aws-cfn-bootstrap
+
+            # Install the files and packages from the metadata
+            /opt/aws/bin/cfn-init -v \
+              --stack ${AWS::StackName} \
+              --resource WebServersLC \
+              --configsets All \
+              --region ${AWS::Region}
+
+            # Signal the status from cfn-init
+            /opt/aws/bin/cfn-signal -e $? \
+              --stack ${AWS::StackName} \
+              --resource WebServersLC \
+              --region ${AWS::Region}
+
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          All:
+            - ConfigureStelligentProject
+        ConfigureStelligentProject:
+          packages:
+            yum:
+              nginx: []
+          files:
+            /usr/share/nginx/html/index.html:
+              content: '<p>Automation for the People</p>'
+              mode: '000644'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              nginx:
+                enabled: 'true'
+                ensureRunning: 'true'

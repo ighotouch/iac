@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates an AWS Simple Storage Service (S3) Bucket"
+Parameters:
+  BucketName:
+    Type: String
+    Description: Bucket name
+    Default: random.s3.bucket
+  PreferedRegion:
+    Type: String
+    Default: us-east-1
+
+Conditions:
+  prefixAccountId: !Equals [!Ref AWS::Region, !Ref PreferedRegion]
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !If [prefixAccountId , !Join  ['-', [!Ref AWS::AccountId, !Ref BucketName]], !Ref BucketName] 
+      Tags:
+        - Key: Name
+          Value: !Ref BucketName
+Outputs:
+  S3BucketARN:
+    Description: Managed Policy's Amazon Resource Name
+    Value: !GetAtt S3Bucket.Arn
